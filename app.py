@@ -13,19 +13,14 @@ from core.rag_engine import build_rag_chain
 
 load_dotenv()
 
-
 # PAGE CONFIG
-
-
 st.set_page_config(
     page_title="AI Video Assistant",
     page_icon="🎬",
     layout="wide",
 )
 
-
 # SESSION STATE
-
 defaults = {
     "summary": "",
     "title": "AI Video Assistant",
@@ -33,298 +28,141 @@ defaults = {
     "result": None,
 }
 
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+for k, v in defaults.items():
+    st.session_state.setdefault(k, v)
 
-
-# CSS
-
-
+# SIMPLE CSS
 st.markdown("""
 <style>
-
-.block-container{
-    padding-top:1rem;
-    max-width:100%;
+.main-title {
+    font-size: 34px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 10px;
 }
-
-.main-header{
+.subtitle {
     text-align:center;
-    border:2px solid #ddd;
-    border-radius:10px;
-    padding:15px;
-    margin-bottom:20px;
-    font-size:40px;
-    font-weight:bold;
+    color: gray;
+    margin-bottom: 20px;
 }
-
-.summary-box{
-    border:2px solid #ddd;
-    border-radius:10px;
-    height:600px;
-    overflow-y:auto;
-    padding:15px;
+.block {
+    padding: 10px;
 }
-
-.chat-box{
-    border:2px solid #ddd;
-    border-radius:10px;
-    height:600px;
-    overflow-y:auto;
-    padding:15px;
-}
-
-.user-msg{
-    background:#DCF8C6;
-    padding:10px;
-    border-radius:10px;
-    margin:8px 0;
-    text-align:right;
-}
-
-.bot-msg{
-    background:#F1F1F1;
-    padding:10px;
-    border-radius:10px;
-    margin:8px 0;
-}
-
-.divider{
-    border-left:2px solid #ddd;
-    height:720px;
-    margin:auto;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-
 # HEADER
+st.markdown("<div class='main-title'>🎬 AI Video Assistant</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Summarize & chat with any YouTube video</div>", unsafe_allow_html=True)
 
+# SIDEBAR (NEW CLEAN INPUT AREA)
+with st.sidebar:
+    st.header("⚙️ Controls")
 
-st.markdown(
-    '<div class="main-header">🎬 AI Video Assistant</div>',
-    unsafe_allow_html=True,
-)
+    source = st.text_input("Video URL", placeholder="https://youtube.com/watch?v=...")
 
+    language = st.selectbox("Language", ["english", "hinglish"])
 
-# MAIN LAYOUT
+    analyze_btn = st.button("🚀 Analyze Video", use_container_width=True)
 
+# MAIN ACTION
+if analyze_btn:
+    if not source.strip():
+        st.error("Please enter a valid URL")
+    else:
+        try:
+            with st.spinner("Processing video..."):
 
-left, divider, right = st.columns([1, 0.03, 1])
+                chunks = process_input(source)
+                transcript = transcribe_all(chunks, language)
 
+                title = generate_title(transcript)
+                summary = summarize(transcript)
 
-# LEFT PANEL
+                action_items = extract_action_items(transcript)
+                decisions = extract_key_decisions(transcript)
+                questions = extract_questions(transcript)
 
+                rag_chain = build_rag_chain(transcript)
 
-with left:
+                st.session_state.result = {
+                    "title": title,
+                    "summary": summary,
+                    "transcript": transcript,
+                    "action_items": action_items,
+                    "decisions": decisions,
+                    "questions": questions,
+                    "rag_chain": rag_chain,
+                }
 
-    source = st.text_input(
-        "Video URL",
-        placeholder="https://youtube.com/watch?v=..."
-    )
+                st.session_state.summary = summary
+                st.session_state.title = title
+                st.session_state.chat_history = []
 
-    language = st.selectbox(
-        "Language",
-        ["english", "hinglish"]
-    )
+            st.success("Analysis complete 🎉")
 
-    analyze_btn = st.button(
-        "Summarize",
-        use_container_width=True
-    )
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-    if analyze_btn:
+# TABS (NEW UI STRUCTURE)
+tab1, tab2 = st.tabs(["📄 Summary", "💬 Chat"])
 
-        if not source.strip():
-            st.error("Please enter a video URL.")
-        else:
+# ---------------- SUMMARY TAB ----------------
+with tab1:
+    st.subheader("Video Summary")
 
-            try:
+    if st.session_state.summary:
+        st.markdown(st.session_state.summary)
+    else:
+        st.info("Summary will appear after analysis.")
 
-                with st.spinner("Processing video..."):
+    if st.session_state.result:
+        st.divider()
+        st.subheader("Key Insights")
 
-                    # 1. Download / Extract Audio
-                    chunks = process_input(source)
+        col1, col2, col3 = st.columns(3)
 
-                    # 2. Transcribe
-                    transcript = transcribe_all(
-                        chunks,
-                        language
-                    )
+        with col1:
+            st.write("📌 Action Items")
+            st.write(st.session_state.result["action_items"])
 
-                    # 3. Summaries
-                    title = generate_title(transcript)
-                    summary = summarize(transcript)
+        with col2:
+            st.write("✅ Decisions")
+            st.write(st.session_state.result["decisions"])
 
-                    # 4. Metadata
-                    action_items = extract_action_items(
-                        transcript
-                    )
+        with col3:
+            st.write("❓ Questions")
+            st.write(st.session_state.result["questions"])
 
-                    decisions = extract_key_decisions(
-                        transcript
-                    )
-
-                    questions = extract_questions(
-                        transcript
-                    )
-
-                    # 5. RAG
-                    rag_chain = build_rag_chain(
-                        transcript
-                    )
-
-                    st.session_state.result = {
-                        "title": title,
-                        "summary": summary,
-                        "transcript": transcript,
-                        "action_items": action_items,
-                        "decisions": decisions,
-                        "questions": questions,
-                        "rag_chain": rag_chain,
-                    }
-
-                    st.session_state.summary = summary
-                    st.session_state.title = title
-                    st.session_state.chat_history = []
-
-                st.success("Analysis completed.")
-
-            except Exception as e:
-                st.error(f"Error: {e}")
-
-    st.subheader("Summary")
-
-    summary_text = (
-        st.session_state.summary
-        if st.session_state.summary
-        else "Summary will appear here after analysis."
-    )
-
-    st.markdown(
-        f"""
-        <div class="summary-box">
-        {summary_text}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# DIVIDER
-
-
-with divider:
-    st.markdown(
-        '<div class="divider"></div>',
-        unsafe_allow_html=True,
-    )
-
-
-# RIGHT PANEL
-
-with right:
-
+# ---------------- CHAT TAB ----------------
+with tab2:
     st.subheader("Chat with Video")
 
-    chat_html = ""
+    if not st.session_state.result:
+        st.info("Analyze a video first to enable chat.")
+    else:
+        # Render chat history
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.write(msg["content"])
 
-    for msg in st.session_state.chat_history:
+        question = st.chat_input("Ask something about the video...")
 
-        if msg["role"] == "user":
-            chat_html += (
-                f'<div class="user-msg">'
-                f'{msg["content"]}'
-                f'</div>'
+        if question:
+            rag_chain = st.session_state.result["rag_chain"]
+
+            with st.chat_message("user"):
+                st.write(question)
+
+            with st.spinner("Thinking..."):
+                answer = rag_chain.invoke({"question": question})
+
+            with st.chat_message("assistant"):
+                st.write(answer)
+
+            st.session_state.chat_history.append(
+                {"role": "user", "content": question}
             )
-        else:
-            chat_html += (
-                f'<div class="bot-msg">'
-                f'{msg["content"]}'
-                f'</div>'
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": str(answer)}
             )
-
-    st.markdown(
-        f"""
-        <div class="chat-box">
-        {chat_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
-
-    input_col, send_col = st.columns([5, 1])
-
-    with input_col:
-        question = st.text_input(
-            "",
-            placeholder="Ask me...",
-            label_visibility="collapsed"
-        )
-
-    with send_col:
-        send_btn = st.button(
-            "Send",
-            use_container_width=True
-        )
-
-    if send_btn:
-
-        if not st.session_state.result:
-            st.warning(
-                "Please analyze a video first."
-            )
-
-        elif question.strip():
-
-            try:
-
-                rag_chain = (
-                    st.session_state.result["rag_chain"]
-                )
-
-                with st.spinner("Thinking..."):
-
-                    answer = rag_chain.invoke({
-                        "question": question
-                    })
-
-                st.session_state.chat_history.append(
-                    {
-                        "role": "user",
-                        "content": question,
-                    }
-                )
-
-                st.session_state.chat_history.append(
-                    {
-                        "role": "assistant",
-                        "content": str(answer),
-                    }
-                )
-
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Chat Error: {e}")
-
-
-# EMPTY STATE
-
-
-if not st.session_state.result:
-
-    st.markdown(
-        """
-        <div style="text-align:center;
-                    margin-top:20px;
-                    color:gray;">
-        Paste a YouTube URL and click Summarize
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
