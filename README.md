@@ -132,7 +132,7 @@ The system is built as a modular AI pipeline that transforms video content into 
 ---
 
 ## Project Structure
-
+```text
 Saaransh-AI/
 │
 ├── app.py
@@ -153,6 +153,7 @@ Saaransh-AI/
 ├── .env
 ├── requirements.txt
 └── README.md
+```
 ---
 
 ## Installation
