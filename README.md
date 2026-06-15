@@ -204,8 +204,11 @@ Install FFmpeg and add it to PATH
 Create a `.env` file:
 
 MISTRAL_API_KEY=your_api_key
+
 SARVAM_API_KEY=your_api_key
+
 WHISPER_MODEL=base
+
 SARVAM_STT_MODEL=saaras:v2.5
 
 ---
